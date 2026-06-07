@@ -52,10 +52,6 @@ python main.py
 | **쓰다듬기 (Patting)** | 손을 화면 위쪽으로 위치함 | 행복함 (Happy) |
 | **꼬집기 (Pinching)** | 손을 좌우로 흔들거나 주먹을 쥠 | 화남 (Mad) |
 
-**[이미지 1: 기본 상태에서 대기 중인 캐릭터]**
-**[이미지 2: PATTING 시 행복해하는 캐릭터 캡처]**
-**[이미지 3: PINCHING 시 화내는 캐릭터 캡처]**
-
 ## 5. 참고 자료 및 레퍼런스
 
 * **OpenCV Documentation:** [OpenCV 공식 문서](https://www.google.com/search?q=https://opencv.org/)
