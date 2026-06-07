@@ -1,5 +1,4 @@
 import cv2
-import math
 from config import *
 from image_loader import ImageLoader
 from renderer import SpriteRenderer
@@ -20,51 +19,72 @@ def main():
     
     affection = 50.0
     model_center_x, model_center_y = WIDTH // 2, HEIGHT // 2
+    
+    # ★ 애니메이션 락 변수 추가 ★
+    anim_lock_frames = 0
+    locked_state = "IDLE"
+    locked_dialogue = "I'm Hatsune Miku. Please interact with me!"
+    locked_color = COLOR_NORMAL
 
-    print("🚀 AR_VisualNovel (GIF Animation & Computer Vision Hand Tracker Ver) 가동 완료!")
+    print("🚀 AR_VisualNovel (Animation Lock System Ver.) 가동 완료!")
 
     while True:
         success, img = cap.read()
         if not success: break
         
         img = cv2.flip(img, 1)
-        # 이번에는 CV 알고리즘 작동(윤곽선)을 잘 보여주기 위해 어둡게 처리하는 걸 뺐습니다.
-        
-        state_text, dialogue, ui_color = "IDLE", "I'm Hatsune Miku. Please interact with me!", COLOR_NORMAL
 
-        # 손 추적기 실행 (이번엔 img 자체를 받아와서 윤곽선을 덧그립니다)
-        state_text, hand_center, img = interactor.analyze(img, model_center_x, model_center_y)
+        # 1. 손 추적기 실행
+        raw_state, hand_center, img = interactor.analyze(img, model_center_x, model_center_y)
 
-        if hand_center:
-            cv2.circle(img, hand_center, 10, (255, 0, 0), cv2.FILLED)
-            
-            if state_text == "PINCHING":
-                ui_color = COLOR_MAD
-                affection = max(0.0, affection - 0.5)
-                dialogue = "Ouch! It hurts! Baka!"
-            elif state_text == "PATTING":
-                ui_color = COLOR_HAPPY
-                affection = min(MAX_AFFECTION, affection + 0.3)
-                dialogue = "Hehe... warm! I like it <3"
-            elif state_text == "TOUCHING":
-                ui_color = COLOR_TOUCH
-                affection = min(MAX_AFFECTION, affection + 0.1)
-                dialogue = "Yes? Do you need something?"
-                model_center_x = WIDTH // 2 + int((hand_center[0] - WIDTH/2) * 0.15)
+        # 2. 애니메이션 상태 관리 (Lock 시스템)
+        if anim_lock_frames > 0:
+            anim_lock_frames -= 1
+            final_state = locked_state
+            dialogue = locked_dialogue
+            ui_color = locked_color
         else:
-            affection = max(0.0, affection - 0.05)
-            model_center_x = int(model_center_x * 0.9 + (WIDTH // 2) * 0.1)
+            # 락이 풀려있을 때만 새로운 상태 판정
+            final_state = "IDLE"
+            dialogue = "I'm Hatsune Miku. Please interact with me!"
+            ui_color = COLOR_NORMAL
 
-        # GIF 애니메이션 렌더링
-        display_img = renderer.render(img, state_text, model_center_x, HEIGHT // 2)
-        
-        ui.draw_status(display_img, state_text)
+            if hand_center:
+                cv2.circle(img, hand_center, 10, (255, 0, 0), cv2.FILLED)
+                
+                if raw_state == "PINCHING":
+                    anim_lock_frames = 121  # mad.gif 프레임 수
+                    locked_state = "PINCHING"
+                    locked_dialogue = "Ouch! It hurts! Baka!"
+                    locked_color = COLOR_MAD
+                    affection = max(0.0, affection - 0.5)
+                    final_state, dialogue, ui_color = locked_state, locked_dialogue, locked_color
+                    
+                elif raw_state == "PATTING":
+                    anim_lock_frames = 43   # happy.gif 프레임 수
+                    locked_state = "PATTING"
+                    locked_dialogue = "Hehe... warm! I like it <3"
+                    locked_color = COLOR_HAPPY
+                    affection = min(MAX_AFFECTION, affection + 0.3)
+                    final_state, dialogue, ui_color = locked_state, locked_dialogue, locked_color
+                    
+                elif raw_state == "TOUCHING":
+                    final_state = "TOUCHING"
+                    ui_color = COLOR_TOUCH
+                    dialogue = "Yes? Do you need something?"
+                    model_center_x = WIDTH // 2 + int((hand_center[0] - WIDTH/2) * 0.15)
+            else:
+                affection = max(0.0, affection - 0.05)
+                model_center_x = int(model_center_x * 0.9 + (WIDTH // 2) * 0.1)
+
+        # 3. 렌더링 및 UI 그리기
+        display_img = renderer.render(img, final_state, model_center_x, HEIGHT // 2)
+        ui.draw_status(display_img, final_state)
         ui.draw_gauge(display_img, affection, ui_color)
         ui.draw_dialogue(display_img, "Hatsune Miku", dialogue, ui_color)
 
         cv2.imshow("AR Visual Novel", display_img)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        if cv2.waitKey(1) & 0xFF == ord('q'): break
 
     cap.release()
     cv2.destroyAllWindows()
